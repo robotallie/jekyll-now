@@ -55,6 +55,3 @@ I'm going to take a stab in the dark and import some tools for the actual modeli
 ### Next Steps: Getting our Data:
 
 The data import will be the next blog in this series...
-
-
-
