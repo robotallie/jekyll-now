@@ -5,6 +5,7 @@ published: true
 ---
 
 
+
 ## Overview
 For this practice project, we are going to predict the acceleration of cars using data provided by Gareth James and Co at USC, found in the dataset `Auto.csv`, which can be downloaded at <a href="http://www-bcf.usc.edu/~gareth/ISL/data.html" target="_blank" rel="noopener">http://www-bcf.usc.edu/~gareth/ISL/data.html</a>.
 
