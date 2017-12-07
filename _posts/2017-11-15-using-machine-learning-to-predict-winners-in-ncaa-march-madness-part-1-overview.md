@@ -3,7 +3,6 @@ layout: post
 title: Using Machine Learning to Predict Winners in NCAA's March Madness - Part 1 - Overview
 published: true
 ---
-##  Using Machine Learning to Predict Winners in NCAA's March Madness - Part 1: Overview
 
 ### Overview:
 
