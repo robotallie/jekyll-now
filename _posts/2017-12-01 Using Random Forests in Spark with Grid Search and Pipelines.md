@@ -168,7 +168,8 @@ Now, we are going to clean the data that we know has some problems, and perform 
 
 If everything loaded correctly, you might notice that the `'horsepower'` column, which should be numeric, is showing up as a `StringType`. Why is this? Well, there are some `"?"` entries, so the file was read in as containing strings. We'll want to filter those rows out and recast the column as integers (`IntegerType`).
 
-	 **1. Fix the Horsepower Column**
+**Cleaning Step 1. Fix the Horsepower Column**
+
 	// Remove rows from dataframe that have "?" entries in the 'horsepower' column:
 	df = df.filter("horsepower != '?'")
 
@@ -179,7 +180,7 @@ Take a look at the data again to make sure things look right.
 
 	df.show()
 	
-**2. Fixing Duplicate Spellings with regexp_replace**
+**Cleaning Step 2. Fixing Duplicate Spellings with regexp_replace**
 Look at the `"name"` column and select a few to do some regex experiments. We think acceleration is going to be similar for similar makes of automobiles, so we just want the first word from `"name"`. We can extract this using regex within Spark's `regexp_extract` and `regexp_replace` packages.
 
 	// Use a regular expression code to extract the first word from the "name" string. // Create a new column, named "make"
@@ -196,7 +197,7 @@ Once we get the makes of the automobiles into a separate column, we need to hand
 	df = df.withColumn("make", regexp_replace($"make", "vokswagen", "volkswagen"))
 	df.groupBy("make").count().orderBy($"make").show(300)
 
-**3. Feature Engineering with StringIndexer and OneHotEncoder**
+**Engineering Step 1. StringIndexer and OneHotEncoder**
 For the `StringIndexer`, we will create a separate `StringIndexer` object for each `StringType` column. There are two cases:
 <ul>
 	<li>the column contains strings, but they do not represent categories, </li>
@@ -231,7 +232,7 @@ Once the `"make"` column has been indexed, we will use `OneHotEncoder` to create
 
 You will notice that the input column for the `OneHotEncoder` was a call to the output column of the `makeIndexer` object. 
 
-**4. Create a Vector of Features to Input into the Model**
+**Engineering Step 2: Create a Vector of Features to Input into the Model**
 The rest of our features are `DoubleType` or `IntegerType`, so we don't have any more transformations to make on our data before transforming it into a feature vector. We need to gather all the feature columns from our dataframe together and pass them through a `VectorAssembler` object, which will transform them from their dataframe shape of columns and rows into an array of rows, each of which is an array of features.
 
 * **This is a big difference between scikit-learn and Spark:** Spark machine learning models take in just two elements: 
@@ -248,7 +249,7 @@ The rest of our features are `DoubleType` or `IntegerType`, so we don't have any
 
 Great! We have already imported our data and Spark pacakges, we've cleaned up the data and designed some feature engineering, and we've set up the model's "label" and "features" arrays. We are ready to build our Random Forest model with a Pipeline!
 
-## Splitting Data Into Training and Testing Data
+## 4. Splitting Data Into Training and Testing Data
 
 At this point, we haven't split our data into a training data and test data. **We must do this before letting the model fit any of our data** to prevent data leakage into our model. We don't want our model to learn from our test data (i.e. out-of-sample data) because we need to use it test the accuracy of our model. For example, in a business case in which you have only a small amount of data in which to both set up your model and test your model's accuracy, your test data must be kept separate from the entire process of model training / learning so that you have the opportunity to prevent overfitting before your model gets launched into the real world where mistakes are costly in terms of clients and profitability.
 
@@ -261,7 +262,7 @@ So, let's split our dataframe into training data and testing data with an 80/20 
 	// Implement a train test split of the dataframe with 80/20 split and seed of 2: train, test
 	val Array(train, test) = df.randomSplit(Array(.8,.2),2)
 
-## Setting up a RandomForestRegressor Model in Spark
+## 5. Setting up a RandomForestRegressor Model in Spark
 
 The Spark random forest package is called `RandomForestRegressor`, and like all models we use in Spark, it expects only two arrays as input: `"label"` and `"features"`.
 
@@ -273,7 +274,7 @@ Remember, we assembled all our feature columns into an array named `"features"` 
 	val rfr = new RandomForestRegressor()
 	  .setLabelCol("acceleration")
 
-## Setting up a Spark Pipeline
+## 6. Setting up a Spark Pipeline
 
 In Spark, you will create a new object that calls a `new Pipeline()` with all of its elements. Pipelines take two objects: transformers and estimators. We previously decided to transform the `"make"` column of our dataframe into a `StringIndexer` object named `makeIndexer`, and then convert that into a `OneHotEncoder` object, named `makeEncoder`. We also create a "features" `VectorAssembler` object called `assembler`. Now, as we set the stages of our pipeline, we'll put all of the transformers into the pipeline, along with the random forest model object we created, `rfr`. **Note: Make sure to call the `makeIndexer` before the `makeEncoder` in the pipeline, since the encoder function takes in the output of the indexer function as a parameter.**
 
@@ -292,7 +293,7 @@ In Spark, you will create a new object that calls a `new Pipeline()` with all of
 	  .setLabelCol("acceleration")
 	  .setMetricName("r2")
 
-## Grid Search
+## 7. Grid Search and Cross Validation to Tune the Model Hyperparameters
 Now that we have our model and pipeline set up, we can conduct a grid search. In scikit-learn, I would use `GridSearchCV`, but for Spark, we imported and will use the package for `ParamGridBuilder`. 
 
 The `ParamGridBuilder` takes in two types of parameters for a random forest:
