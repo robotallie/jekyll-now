@@ -1,4 +1,9 @@
 
+---
+layout: post
+title:  Using Random Forests in Spark with Grid Search and Pipelines
+published: true
+---
 
 ## Overview
 For this practice project, we are going to predict the acceleration of cars using data provided by Gareth James and Co at USC, found in the dataset `Auto.csv`, which can be downloaded at <a href="http://www-bcf.usc.edu/~gareth/ISL/data.html" target="_blank" rel="noopener">http://www-bcf.usc.edu/~gareth/ISL/data.html</a>.
@@ -115,46 +120,46 @@ var df = sqlContext
 
 Make sure the data loaded correctly by checking the data types of each column and looking at the top 20 rows of the data.
 
-`df.dtypes
+	`df.dtypes
 
-res: df:org.apache.spark.sql.DataFrame
-mpg:double
-cylinders:integer
-displacement:double
-horsepower:integer
-weight:integer
-acceleration:double
-year:integer
-origin:integer
-name:string
-make:string`
+	res: df:org.apache.spark.sql.DataFrame
+	mpg:double
+	cylinders:integer
+	displacement:double
+	horsepower:integer
+	weight:integer
+	acceleration:double
+	year:integer
+	origin:integer
+	name:string
+	make:string`
 
-`df.show()
-+----+---------+------------+----------+------+------------+----+------+--------------------+
-| mpg|cylinders|displacement|horsepower|weight|acceleration|year|origin|                name|
-+----+---------+------------+----------+------+------------+----+------+--------------------+
-|18.0|        8|       307.0|       130|  3504|        12.0|  70|     1|chevrolet chevell...|
-|15.0|        8|       350.0|       165|  3693|        11.5|  70|     1|   buick skylark 320|
-|18.0|        8|       318.0|       150|  3436|        11.0|  70|     1|  plymouth satellite|
-|16.0|        8|       304.0|       150|  3433|        12.0|  70|     1|       amc rebel sst|
-|17.0|        8|       302.0|       140|  3449|        10.5|  70|     1|         ford torino|
-|15.0|        8|       429.0|       198|  4341|        10.0|  70|     1|    ford galaxie 500|
-|14.0|        8|       454.0|       220|  4354|         9.0|  70|     1|    chevrolet impala|
-|14.0|        8|       440.0|       215|  4312|         8.5|  70|     1|   plymouth fury iii|
-|14.0|        8|       455.0|       225|  4425|        10.0|  70|     1|    pontiac catalina|
-|15.0|        8|       390.0|       190|  3850|         8.5|  70|     1|  amc ambassador dpl|
-|15.0|        8|       383.0|       170|  3563|        10.0|  70|     1| dodge challenger se|
-|14.0|        8|       340.0|       160|  3609|         8.0|  70|     1|  plymouth 'cuda 340|
-|15.0|        8|       400.0|       150|  3761|         9.5|  70|     1|chevrolet monte c...|
-|14.0|        8|       455.0|       225|  3086|        10.0|  70|     1|buick estate wago...|
-|24.0|        4|       113.0|        95|  2372|        15.0|  70|     3|toyota corona mar...|
-|22.0|        6|       198.0|        95|  2833|        15.5|  70|     1|     plymouth duster|
-|18.0|        6|       199.0|        97|  2774|        15.5|  70|     1|          amc hornet|
-|21.0|        6|       200.0|        85|  2587|        16.0|  70|     1|       ford maverick|
-|27.0|        4|        97.0|        88|  2130|        14.5|  70|     3|        datsun pl510|
-|26.0|        4|        97.0|        46|  1835|        20.5|  70|     2|volkswagen 1131 d...|
+	`df.show()
+	+----+---------+------------+----------+------+------------+----+------+--------------------+
+	| mpg|cylinders|displacement|horsepower|weight|acceleration|year|origin|                name|
+	+----+---------+------------+----------+------+------------+----+------+--------------------+
+	|18.0|        8|       307.0|       130|  3504|        12.0|  70|     1|chevrolet chevell...|
+	|15.0|        8|       350.0|       165|  3693|        11.5|  70|     1|   buick skylark 320|
+	|18.0|        8|       318.0|       150|  3436|        11.0|  70|     1|  plymouth satellite|
+	|16.0|        8|       304.0|       150|  3433|        12.0|  70|     1|       amc rebel sst|
+	|17.0|        8|       302.0|       140|  3449|        10.5|  70|     1|         ford torino|
+	|15.0|        8|       429.0|       198|  4341|        10.0|  70|     1|    ford galaxie 500|
+	|14.0|        8|       454.0|       220|  4354|         9.0|  70|     1|    chevrolet impala|
+	|14.0|        8|       440.0|       215|  4312|         8.5|  70|     1|   plymouth fury iii|
+	|14.0|        8|       455.0|       225|  4425|        10.0|  70|     1|    pontiac catalina|
+	|15.0|        8|       390.0|       190|  3850|         8.5|  70|     1|  amc ambassador dpl|
+	|15.0|        8|       383.0|       170|  3563|        10.0|  70|     1| dodge challenger se|
+	|14.0|        8|       340.0|       160|  3609|         8.0|  70|     1|  plymouth 'cuda 340|
+	|15.0|        8|       400.0|       150|  3761|         9.5|  70|     1|chevrolet monte c...|
+	|14.0|        8|       455.0|       225|  3086|        10.0|  70|     1|buick estate wago...|
+	|24.0|        4|       113.0|        95|  2372|        15.0|  70|     3|toyota corona mar...|
+	|22.0|        6|       198.0|        95|  2833|        15.5|  70|     1|     plymouth duster|
+	|18.0|        6|       199.0|        97|  2774|        15.5|  70|     1|          amc hornet|
+	|21.0|        6|       200.0|        85|  2587|        16.0|  70|     1|       ford maverick|
+	|27.0|        4|        97.0|        88|  2130|        14.5|  70|     3|        datsun pl510|
+	|26.0|        4|        97.0|        46|  1835|        20.5|  70|     2|volkswagen 1131 d...|
 
-only showing top 20 rows`
+	only showing top 20 rows`
 
 If everything loaded correctly, we can move on to data cleaning and feature engineering.
 ## 3. Data Cleaning 
