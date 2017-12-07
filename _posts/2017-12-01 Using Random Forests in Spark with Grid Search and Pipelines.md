@@ -86,20 +86,20 @@ Let's start with importing Apache Spark packages for SQL (.sql) and for Machine 
 
 * Lastly for the model evaluation, we will try out the cross validation package and use the evaluator for regression, so we can import `CrossValidator`, `ParamGridBuilder`, `RegressionEvaluator` to get those.
 
-`// Cleaning the data
-import org.apache.spark.sql.types.IntegerType
-import org.apache.spark.sql.functions.{regexp_extract, regexp_replace}
+	// Cleaning the data
+	import org.apache.spark.sql.types.IntegerType
+	import org.apache.spark.sql.functions.{regexp_extract, regexp_replace}
 
-// Feature engineering
-import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexer, VectorIndexer, VectorAssembler}
+	// Feature engineering
+	import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexer, VectorIndexer, VectorAssembler}
 
-// Model Building
-import org.apache.spark.ml.regression.RandomForestRegressor
-import org.apache.spark.ml.Pipeline
+	// Model Building
+	import org.apache.spark.ml.regression.RandomForestRegressor
+	import org.apache.spark.ml.Pipeline
 
-// Model Evaluation
-import org.apache.spark.ml.evaluation.RegressionEvaluator
-import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}`
+	// Model Evaluation
+	import org.apache.spark.ml.evaluation.RegressionEvaluator
+	import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 
 ## 2. File I/O: 
 - In the first few steps of setting up our data in DataBricks, we saved the filepath of the `Auto.csv` dataset after we uploaded it into our DataBricks dashboard. Have that ready now.
@@ -107,21 +107,21 @@ import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}`
 
 So this hard to read data import:
 
-`var df = sqlContext.read.format("csv").option("header", "true").option("inferSchema","true").load("/FileStore/tables/Auto.csv")df.show()`
+	var df = sqlContext.read.format("csv").option("header", "true").option("inferSchema","true").load("/FileStore/tables/Auto.csv")df.show()
 
 becomes this easy-to-read snippe:
 
-`// /FileStore/tables/Auto.csv
-var df = sqlContext
-  .read
-  .format("csv")
-  .option("header", "true")
-  .option("inferSchema", "true")
-  .load("/FileStore/tables/Auto.csv")`
+	// /FileStore/tables/Auto.csv
+	var df = sqlContext
+	  .read
+	  .format("csv")
+	  .option("header", "true")
+	  .option("inferSchema", "true")
+	  .load("/FileStore/tables/Auto.csv")
 
 Make sure the data loaded correctly by checking the data types of each column and looking at the top 20 rows of the data.
 
-	`df.dtypes
+	df.dtypes
 
 	res: df:org.apache.spark.sql.DataFrame
 	mpg:double
@@ -133,9 +133,9 @@ Make sure the data loaded correctly by checking the data types of each column an
 	year:integer
 	origin:integer
 	name:string
-	make:string`
+	make:string
 
-	`df.show()
+	df.show()
 	+----+---------+------------+----------+------+------------+----+------+--------------------+
 	| mpg|cylinders|displacement|horsepower|weight|acceleration|year|origin|                name|
 	+----+---------+------------+----------+------+------------+----+------+--------------------+
@@ -160,7 +160,7 @@ Make sure the data loaded correctly by checking the data types of each column an
 	|27.0|        4|        97.0|        88|  2130|        14.5|  70|     3|        datsun pl510|
 	|26.0|        4|        97.0|        46|  1835|        20.5|  70|     2|volkswagen 1131 d...|
 
-	only showing top 20 rows`
+	only showing top 20 rows
 
 If everything loaded correctly, we can move on to data cleaning and feature engineering.
 ## 3. Data Cleaning 
@@ -168,32 +168,33 @@ Now, we are going to clean the data that we know has some problems, and perform 
 
 If everything loaded correctly, you might notice that the `'horsepower'` column, which should be numeric, is showing up as a `StringType`. Why is this? Well, there are some `"?"` entries, so the file was read in as containing strings. We'll want to filter those rows out and recast the column as integers (`IntegerType`).
 
- **1. Fix the Horsepower Column**
-`// Remove rows from dataframe that have "?" entries in the 'horsepower' column:
-df = df.filter("horsepower != '?'")`
+	 **1. Fix the Horsepower Column**
+	// Remove rows from dataframe that have "?" entries in the 'horsepower' column:
+	df = df.filter("horsepower != '?'")
 
-`// Cast the 'horsepower' column as IntegerType
-df = df.withColumn("horsepower", df("horsepower").cast(IntegerType))`
+	// Cast the 'horsepower' column as IntegerType
+	df = df.withColumn("horsepower", df("horsepower").cast(IntegerType))
 
 Take a look at the data again to make sure things look right.
 
-`df.show()`
+	df.show()
+	
 **2. Fixing Duplicate Spellings with regexp_replace**
 Look at the `"name"` column and select a few to do some regex experiments. We think acceleration is going to be similar for similar makes of automobiles, so we just want the first word from `"name"`. We can extract this using regex within Spark's `regexp_extract` and `regexp_replace` packages.
 
-`// Use a regular expression code to extract the first word from the "name" string. // Create a new column, named "make"
-df = df.withColumn("make", regexp_extract($"name", "^\\w+", 0))`
+	// Use a regular expression code to extract the first word from the "name" string. // Create a new column, named "make"
+	df = df.withColumn("make", regexp_extract($"name", "^\\w+", 0))
 
 Once we get the makes of the automobiles into a separate column, we need to handle the cases in which the make has been misspelled. If you call `df.groupBy("make").show()`, you will see that "chevrolet" has also been entered into the dataframe as "chevy" and "chevroelt", so we need to use the `regexp_replace` to replace the various versions with only one (hopefully, the correct) spelling. You can look at the code and see that there were other duplicates that needed to be replaced:
 
-`// Examining the data -- shows that there are multiple variations of some car makes:
-df = df.withColumn("make", regexp_replace($"make", "(chevy|chevroelt)", "chevrolet"))
-df = df.withColumn("make", regexp_replace($"make", "capri", "ford"))
-df = df.withColumn("make", regexp_replace($"make", "hi", "ih"))
-df = df.withColumn("make", regexp_replace($"make", "maxda", "mazda"))
-df = df.withColumn("make", regexp_replace($"make", "toyouta", "toyota"))
-df = df.withColumn("make", regexp_replace($"make", "vokswagen", "volkswagen"))
-df.groupBy("make").count().orderBy($"make").show(300)`
+	// Examining the data -- shows that there are multiple variations of some car makes:
+	df = df.withColumn("make", regexp_replace($"make", "(chevy|chevroelt)", "chevrolet"))
+	df = df.withColumn("make", regexp_replace($"make", "capri", "ford"))
+	df = df.withColumn("make", regexp_replace($"make", "hi", "ih"))
+	df = df.withColumn("make", regexp_replace($"make", "maxda", "mazda"))
+	df = df.withColumn("make", regexp_replace($"make", "toyouta", "toyota"))
+	df = df.withColumn("make", regexp_replace($"make", "vokswagen", "volkswagen"))
+	df.groupBy("make").count().orderBy($"make").show(300)
 
 **3. Feature Engineering with StringIndexer and OneHotEncoder**
 For the `StringIndexer`, we will create a separate `StringIndexer` object for each `StringType` column. There are two cases:
@@ -211,22 +212,22 @@ In the first case, we will only apply the `StringIndexer` and then pass the inde
 </ol>
 The first input is the column name that needs to be transformed, which in our case is `"make"`. The second input is the name you want the indexer object to output, once the column has been indexed. Good practice is to make the new indexed column name according to following structure:
 
-`"originalColumnName" + "Indexed"`
+	"originalColumnName" + "Indexed"
 
 In our case, we want to set the output column name to `"makeIndexed"` because the original column is named `"make"`. Using a pipeline, we won't be explicitly referencing the output of the Indexer and Encoder objects, but it's good to understand what the output will be.
 
-`// Feature engineering on car "make" with StringIndexer 
-val makeIndexer = new StringIndexer()
-.setInputCol("make")
-.setOutputCol("makeIndexed")
-.setHandleInvalid("keep")`
+	// Feature engineering on car "make" with StringIndexer 
+	val makeIndexer = new StringIndexer()
+	.setInputCol("make")
+	.setOutputCol("makeIndexed")
+	.setHandleInvalid("keep")
 
 Once the `"make"` column has been indexed, we will use `OneHotEncoder` to create an encoded object, which we will call `"makeEncoded"` using the same logic described above.
 
-`// Feature engineering on "makeIndexed" using OneHotEncoder
-val makeEncoder = new OneHotEncoder()
-.setInputCol(makeIndexer.getOutputCol)
-.setOutputCol("makeEncoded")`
+	// Feature engineering on "makeIndexed" using OneHotEncoder
+	val makeEncoder = new OneHotEncoder()
+	.setInputCol(makeIndexer.getOutputCol)
+	.setOutputCol("makeEncoded")
 
 You will notice that the input column for the `OneHotEncoder` was a call to the output column of the `makeIndexer` object. 
 
@@ -240,10 +241,10 @@ The rest of our features are `DoubleType` or `IntegerType`, so we don't have any
 </ul>
 `"Label"` is your target column,in this case `"acceleration"`. `"Features"` is an array of all your features. Remember: Spark models do not take dataframes as inputs, so use `VectorAssembler` to create a vector of features from your dataframe.
 
-`// Create a vector of model features: "features"
-val assembler = new VectorAssembler()
-   .setInputCols(Array("mpg", "cylinders", "displacement", "horsepower", "weight","year", "origin",makeEncoder.getOutputCol))
-   .setOutputCol("features")`
+	// Create a vector of model features: "features"
+	val assembler = new VectorAssembler()
+	   .setInputCols(Array("mpg", "cylinders", "displacement", "horsepower", "weight","year", "origin",makeEncoder.getOutputCol))
+	   .setOutputCol("features")
 
 Great! We have already imported our data and Spark pacakges, we've cleaned up the data and designed some feature engineering, and we've set up the model's "label" and "features" arrays. We are ready to build our Random Forest model with a Pipeline!
 
@@ -257,8 +258,8 @@ So, let's split our dataframe into training data and testing data with an 80/20 
 	<li>A random seed that you can use to ensure your results can be replicated by yourself and others. </li>
 </ol>
 
-`// Implement a train test split of the dataframe with 80/20 split and seed of 2: train, test
-val Array(train, test) = df.randomSplit(Array(.8,.2),2)`
+	// Implement a train test split of the dataframe with 80/20 split and seed of 2: train, test
+	val Array(train, test) = df.randomSplit(Array(.8,.2),2)
 
 ## Setting up a RandomForestRegressor Model in Spark
 
@@ -268,28 +269,28 @@ We can either recode the name of the target column of our dataframe as `"label"`
 
 Remember, we assembled all our feature columns into an array named `"features"` using `VectorAssembler()`. So, once `"features"` is created, we don't have to pass it explicitly into the model's `.setInputCols()`, because the model expects a `"features"` input column by default.
 
-`// Instantiate a Random Forest Model
-val rfr = new RandomForestRegressor()
-  .setLabelCol("acceleration")`
+	// Instantiate a Random Forest Model
+	val rfr = new RandomForestRegressor()
+	  .setLabelCol("acceleration")
 
 ## Setting up a Spark Pipeline
 
 In Spark, you will create a new object that calls a `new Pipeline()` with all of its elements. Pipelines take two objects: transformers and estimators. We previously decided to transform the `"make"` column of our dataframe into a `StringIndexer` object named `makeIndexer`, and then convert that into a `OneHotEncoder` object, named `makeEncoder`. We also create a "features" `VectorAssembler` object called `assembler`. Now, as we set the stages of our pipeline, we'll put all of the transformers into the pipeline, along with the random forest model object we created, `rfr`. **Note: Make sure to call the `makeIndexer` before the `makeEncoder` in the pipeline, since the encoder function takes in the output of the indexer function as a parameter.**
 
-`// Instantiate the Pipeline() with the "make", the features, and the model: pipeline
-val pipeline = new Pipeline().setStages(Array(makeIndexer, makeEncoder, assembler, rfr))
+	// Instantiate the Pipeline() with the "make", the features, and the model: pipeline
+	val pipeline = new Pipeline().setStages(Array(makeIndexer, makeEncoder, assembler, rfr))
 
-// Train the model on training data with the pipeline.fit(): model
-val model = pipeline.fit(train)
+	// Train the model on training data with the pipeline.fit(): model
+	val model = pipeline.fit(train)
 
-// Make predictions using model.transform(): predictions
-val predictions = model.transform(test)
+	// Make predictions using model.transform(): predictions
+	val predictions = model.transform(test)
 
-// Evaluate the model with an R-squared metric that takes in 
-// the label and the predictions from predictions: evaluator 
-val evaluator = new RegressionEvaluator()
-  .setLabelCol("acceleration")
-  .setMetricName("r2")`
+	// Evaluate the model with an R-squared metric that takes in 
+	// the label and the predictions from predictions: evaluator 
+	val evaluator = new RegressionEvaluator()
+	  .setLabelCol("acceleration")
+	  .setMetricName("r2")
 
 ## Grid Search
 Now that we have our model and pipeline set up, we can conduct a grid search. In scikit-learn, I would use `GridSearchCV`, but for Spark, we imported and will use the package for `ParamGridBuilder`. 
@@ -300,31 +301,31 @@ The `ParamGridBuilder` takes in two types of parameters for a random forest:
 	<li>A build method</li>
 </ul>
 
-`// Create a Grid Search object for RandomForestRegressor: paramGrid
-var paramGrid = new ParamGridBuilder()
-  .addGrid(rfr.numTrees, Array(20, 30, 40))
-  .addGrid(rfr.maxDepth, Array(1, 2, 3, 4, 5))
-  .build()`
+	// Create a Grid Search object for RandomForestRegressor: paramGrid
+	var paramGrid = new ParamGridBuilder()
+	  .addGrid(rfr.numTrees, Array(20, 30, 40))
+	  .addGrid(rfr.maxDepth, Array(1, 2, 3, 4, 5))
+	  .build()
 
 We also imported the Spark `CrossValidator` package to run cross validation on our pipeline as it fits trees across the (3 X 15) grid of parameters. 
 
-`// Set up the CrossValidator and assign it to the object 'cv': cv
-val cv = new CrossValidator()
-  .setEstimator(pipe)
-  .setEstimatorParamMaps(paramGrid)
-  .setEvaluator(evaluator)
-  .setNumFolds(3)
+	// Set up the CrossValidator and assign it to the object 'cv': cv
+	val cv = new CrossValidator()
+	  .setEstimator(pipe)
+	  .setEstimatorParamMaps(paramGrid)
+	  .setEvaluator(evaluator)
+	  .setNumFolds(3)
 
-// Createa a cross validation object to fit on the training data: cvModel
-val cvModel = cv.fit(train)
+	// Createa a cross validation object to fit on the training data: cvModel
+	val cvModel = cv.fit(train)
 
-// Create an evaluate object to calculate the R-squared statistic on our test data: rsquaredCV
-val rsquaredCV = evaluator.evaluate(cvModel.transform(test))
+	// Create an evaluate object to calculate the R-squared statistic on our test data: rsquaredCV
+	val rsquaredCV = evaluator.evaluate(cvModel.transform(test))
 
-// Print the R-squared 
-println("R-squared on test data = " + rsquaredCV)
+	// Print the R-squared 
+	println("R-squared on test data = " + rsquaredCV)
 
-res: rsquared_cv: Double = 0.7624816156777308`
+	res: rsquared_cv: Double = 0.7624816156777308
 
 Before the grid search, the best score was 0.64, and after it rose to 0.762. We found a nice boost in model accuracy by fitting different sizes of trees with a grid search. 
 
@@ -332,17 +333,17 @@ Now, you are going to want to know what the parameters were for the best model d
 
 You are going to search the output of the `.getEstimatorParamMaps` call on our cross validation object to find both the best score, and the parameter that it was associated with in the grid search. You can do this by zipping together the `cvModel` and the `.avgMetrics`, then finding the maximum `avgMetrics` by taking the max of the second item of the tuple `(_._2)`, and extracting the parameter for that value by accessing the first item in the `tuple (._1)`. Don't worry if it seems a bit difficult at first to chain and index items this way in Spark / Scala.
 
-`// Get best parameters for model:
-cvModel.getEstimatorParamMaps
-  .zip(cvModel.avgMetrics)
-  .maxBy(_._2)
-  ._1<`
-  
-`res33: org.apache.spark.ml.param.ParamMap =
-{
-	rfr_6c28bd2d975a-maxDepth: 5,
-	rfr_6c28bd2d975a-numTrees: 40
-}`
+	// Get best parameters for model:
+	cvModel.getEstimatorParamMaps
+	  .zip(cvModel.avgMetrics)
+	  .maxBy(_._2)
+	  ._1<
+
+	res33: org.apache.spark.ml.param.ParamMap =
+	{
+		rfr_6c28bd2d975a-maxDepth: 5,
+		rfr_6c28bd2d975a-numTrees: 40
+	}
 
 We find that the best parameters were maxDepth of 5, and 40 trees. There is no "right" amount of tuning for your model. Play with the parameters and consider other features you could engineer, such as the model of the car.
 
